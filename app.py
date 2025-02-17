@@ -18,7 +18,8 @@ GCS_FAISS_INDEX_FILE = "embeddings/old_index.faiss"
 
 app = FastAPI()
 
-# Store image and embeddings globally
+# Store image and embeddings 
+app.state.image = None
 model_ckpt = "facebook/deit-small-patch16-224"
 app.state.extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
 app.state.model = AutoModel.from_pretrained(model_ckpt)
@@ -37,6 +38,8 @@ async def upload_image(file: UploadFile = File(...)):
 
     if image is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
+
+    app.state.image = image
     
     # Call function to split image into patches
     # temp_dir, patches_info = split_image_into_patches(image)
@@ -55,9 +58,20 @@ async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(
     """
     User selects a bounding box on the image to search for similar objects.
     """
-    """Load dataset embeddings & FAISS index from GCS."""
+    """Load dataset embeddings & FAISS index from GCS."""    
+
+    # Load the uploaded image
+    image = app.state.image
+    if image is None:
+        raise HTTPException(status_code=400, detail="No image uploaded")
+
+    # Extract selected patch
+    selected_patch = image[y1:y2, x1:x2]
+    max_dim = max(selected_patch.shape)
+    query_patch = cv2.resize(selected_patch, (224, 224))
+
     # Call function to split image into patches
-    temp_dir, patches_info = split_image_into_patches(image)
+    temp_dir, patches_info = split_image_into_patches(image, max_dim)
     extractor = app.state.extractor
     model = app.state.model
     create_embeddings(temp_dir, extractor, model)
@@ -68,20 +82,9 @@ async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(
     dataset_embeddings = Dataset.load_from_disk("/tmp/old_embeddings")
     dataset_embeddings.load_faiss_index("embeddings", "/tmp/old_index.faiss")
     if dataset_embeddings is None:
-        raise HTTPException(status_code=400, detail="No image uploaded yet.")
-
-    # Load the uploaded image
-    image = cv2.imread("uploaded_image.jpg")
-    if image is None:
-        raise HTTPException(status_code=400, detail="Uploaded image not found.")
-
-    # Extract selected patch
-    selected_patch = image[y1:y2, x1:x2]
-    query_patch = cv2.resize(selected_patch, (224, 224))
+        raise HTTPException(status_code=400, detail="Embeddings could not be created")
 
     # Find similar objects
-    extractor = app.state.extractor
-    model = app.state.model
     scores, retrieved_examples = get_neighbors(extractor, model, dataset_embeddings, query_patch, 50)
     coords = np.array(retrieved_examples['coords'])
 
@@ -108,7 +111,7 @@ async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(
 @app.get("/download/")
 async def download_output():
     """
-    Endpoint to download the processed output image.
+    Endpoint to download the json for the bboxes for the original image
     """
     if not os.path.exists("output.jpg"):
         raise HTTPException(status_code=400, detail="No processed image available.")

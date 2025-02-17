@@ -9,18 +9,20 @@ from google.cloud import storage
 # model = AutoModel.from_pretrained(model_ckpt)
 # hidden_dim = model.config.hidden_size
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "object-search-image.json"
-GCS_BUCKET_NAME = "faiss-storage-123"
+GCS_BUCKET_NAME = "faiss-storage-1234"
 GCS_EMBEDDINGS_FILE = "embeddings/old_embeddings"
 GCS_FAISS_INDEX_FILE = "embeddings/old_index.faiss"
 
 storage_client = storage.Client()
 bucket = storage_client.bucket(GCS_BUCKET_NAME)
 
-def upload_to_gcs(source_file_name, destination_blob_name):
+def upload_to_gcs(source_file_dir, destination_blob_name):
     """Uploads a file to Google Cloud Storage."""
     blob = bucket.blob(destination_blob_name)
-    blob.upload_from_filename(source_file_name)
-    print(f"Uploaded {source_file_name} to {destination_blob_name}")
+    for root, _, files in os.walk(source_file_dir):
+        for file_name in files:
+            blob.upload_from_filename(os.path.join(root, file_name))
+    print(f"Uploaded {source_file_dir} to {destination_blob_name}")
 
 def download_from_gcs(blob_name, destination_file_name):
     """Downloads a file from Google Cloud Storage."""
