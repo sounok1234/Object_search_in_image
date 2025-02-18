@@ -103,10 +103,13 @@ with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
 
 # Load the FAISS index from the temporary file
 faiss_index = faiss.read_index(tmp_file_path)
+faiss_index_size = faiss_index.ntotal
+print(faiss_index_size)
 # Delete the temporary file manually
 os.remove(tmp_file_path)
 # Create a dataset (if you don't already have one)
 dataset = Dataset.from_dict({"embeddings": embeddings_array})
+print(len(dataset))
 # Add the FAISS index to the dataset
 dataset.add_faiss_index("embeddings", custom_index=faiss_index)
 print("FAISS index successfully added to the dataset.")

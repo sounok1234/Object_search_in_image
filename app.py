@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import os
 # from PIL import Image
-from image_similarity import download_from_gcs, get_neighbors, create_embeddings
+from image_similarity import get_embeddings_and_faiss_index, get_neighbors, create_embeddings
 from patches import split_image_into_patches
 from datasets import Dataset
 
@@ -75,19 +75,10 @@ async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(
     extractor = app.state.extractor
     model = app.state.model
     create_embeddings(temp_dir, extractor, model)
-
-    download_from_gcs(GCS_EMBEDDINGS_FILE, "/tmp/old_embeddings")
-    download_from_gcs(GCS_FAISS_INDEX_FILE, "/tmp/old_index.faiss")
-
-    dataset_embeddings = Dataset.load_from_disk("/tmp/old_embeddings")
-    dataset_embeddings.load_faiss_index("embeddings", "/tmp/old_index.faiss")
-    if dataset_embeddings is None:
-        raise HTTPException(status_code=400, detail="Embeddings could not be created")
-
+    dataset_embeddings = get_embeddings_and_faiss_index()
     # Find similar objects
-    scores, retrieved_examples = get_neighbors(extractor, model, dataset_embeddings, query_patch, 50)
+    scores, retrieved_examples = get_neighbors(extractor, model, dataset_embeddings, query_patch, 3)
     coords = np.array(retrieved_examples['coords'])
-
     # Normalize scores
     min_val, max_val = np.min(scores), np.max(scores)
     normalized_scores = [(1 - (s - min_val) / (max_val - min_val)) for s in scores]
