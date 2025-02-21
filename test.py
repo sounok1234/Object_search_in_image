@@ -1,6 +1,7 @@
 from io import BytesIO
 import os
 import tempfile
+import cv2
 import faiss
 from google.cloud import storage
 from datasets import load_dataset
@@ -9,9 +10,10 @@ from datasets import Dataset
 from transformers import AutoFeatureExtractor, AutoModel
 import pyarrow.parquet as pq
 
-from image_similarity import extract_embeddings
+from utils import extract_embeddings
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "object-search-image.json"
+os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 model_ckpt = "facebook/deit-small-patch16-224"
 extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
 model = AutoModel.from_pretrained(model_ckpt)
@@ -73,6 +75,7 @@ def create_embeddings_io(output_dir, extractor, model):
     train_dataset = dataset['train']    
     dataset_with_embeddings = train_dataset.map(lambda example: 
                             {'embeddings': extract_embeddings(example["image"], extractor, model)})
+    print(dataset_with_embeddings.shape)
     # Convert dataset to an in-memory Parquet file
     embeddings_data = BytesIO()
     table = dataset_with_embeddings.data.table
@@ -93,24 +96,37 @@ def create_embeddings_io(output_dir, extractor, model):
 
     return {"message": "Embeddings and FAISS index saved & uploaded to GCS!"}
 
-embeddings_data = download_from_gcs(GCS_EMBEDDINGS_FILE)
-embeddings_array = load_embeddings_from_parquet(embeddings_data)
-faiss_data = download_from_gcs(GCS_FAISS_INDEX_FILE)
-with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-    tmp_file.write(faiss_data.getvalue())  # Write the binary data to the temporary file
-    tmp_file.flush()  # Ensure the data is written to disk
-    tmp_file_path = tmp_file.name
+# embeddings_data = download_from_gcs(GCS_EMBEDDINGS_FILE)
+# embeddings_array = load_embeddings_from_parquet(embeddings_data)
+# faiss_data = download_from_gcs(GCS_FAISS_INDEX_FILE)
+# with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+#     tmp_file.write(faiss_data.getvalue())  # Write the binary data to the temporary file
+#     tmp_file.flush()  # Ensure the data is written to disk
+#     tmp_file_path = tmp_file.name
 
-# Load the FAISS index from the temporary file
-faiss_index = faiss.read_index(tmp_file_path)
-faiss_index_size = faiss_index.ntotal
-print(faiss_index_size)
-# Delete the temporary file manually
-os.remove(tmp_file_path)
-# Create a dataset (if you don't already have one)
-dataset = Dataset.from_dict({"embeddings": embeddings_array})
-print(len(dataset))
-# Add the FAISS index to the dataset
-dataset.add_faiss_index("embeddings", custom_index=faiss_index)
-print("FAISS index successfully added to the dataset.")
-# create_embeddings_io("C://Users//ssoun//AppData//Local//Temp//tmpa27r463c", extractor, model)
+# # Load the FAISS index from the temporary file
+# faiss_index = faiss.read_index(tmp_file_path)
+# faiss_index_size = faiss_index.ntotal
+# print(faiss_index_size)
+# # Delete the temporary file manually
+# os.remove(tmp_file_path)
+# # Create a dataset (if you don't already have one)
+# dataset = Dataset.from_dict({"embeddings": embeddings_array})
+# print(len(dataset))
+# # Add the FAISS index to the dataset
+# dataset.add_faiss_index("embeddings", custom_index=faiss_index)
+# print("FAISS index successfully added to the dataset.")
+
+# create_embeddings_io("D://Sounok//Object_search_in_image//patches_train", extractor, model)
+
+dataset = load_dataset("imagefolder", data_dir="D://Sounok//Object_search_in_image//patches_train")
+train_dataset = dataset['train']    
+dataset_with_embeddings = train_dataset.map(lambda example: 
+                        {'embeddings': extract_embeddings(example["image"], extractor, model)})
+dataset_with_embeddings.add_faiss_index(column='embeddings')
+query_image = cv2.imread("D://Sounok//Object_search_in_image//test.jpg")
+query_embedding = model(**extractor(query_image, return_tensors="pt"))
+query_embedding = query_embedding.last_hidden_state[:, 0].detach().numpy().squeeze()
+scores, retrieved_examples = dataset_with_embeddings.get_nearest_examples('embeddings', query_embedding, k=5)
+
+print(retrieved_examples)

@@ -1,3 +1,5 @@
+import os
+import jsonlines
 import tempfile
 import cv2
 import numpy as np
@@ -33,4 +35,8 @@ def split_image_into_patches(np_image, patch_size=48, overlap=0.5, init = 0):
                 data.append(patch_json)
                 init += 1
 
-    return temp_dir, data
+    json_file_path = os.path.join(temp_dir, 'metadata.jsonl')
+    with jsonlines.open(json_file_path, mode='w') as writer:
+        writer.write_all(data)
+
+    return temp_dir

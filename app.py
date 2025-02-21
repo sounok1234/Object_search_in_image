@@ -1,20 +1,14 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from transformers import AutoFeatureExtractor, AutoModel
-# from typing import List
 import cv2
 import numpy as np
 import os
-# from PIL import Image
-from image_similarity import get_embeddings_and_faiss_index, get_neighbors, create_embeddings
+from utils import extract_embeddings, get_neighbors
 from patches import split_image_into_patches
-from datasets import Dataset
+from datasets import load_dataset
 
 # Fix OpenMP error
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "object-search-image.json"
-
-GCS_EMBEDDINGS_FILE = "embeddings/old_embeddings"
-GCS_FAISS_INDEX_FILE = "embeddings/old_index.faiss"
 
 app = FastAPI()
 
@@ -24,7 +18,6 @@ model_ckpt = "facebook/deit-small-patch16-224"
 app.state.extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
 app.state.model = AutoModel.from_pretrained(model_ckpt)
 app.state.hidden_dim = app.state.model.config.hidden_size
-# app.state.dataset_with_embeddings = None  # Properly store dataset
 
 @app.post("/upload/")
 async def upload_image(file: UploadFile = File(...)):
@@ -40,18 +33,8 @@ async def upload_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     app.state.image = image
-    
-    # Call function to split image into patches
-    # temp_dir, patches_info = split_image_into_patches(image)
-    # extractor = app.state.extractor
-    # model = app.state.model
-    # create_embeddings(temp_dir, extractor, model)
 
-    return {
-        "message": "Image uploaded successfully!",
-        # "patches_directory": temp_dir,
-        # "patches_info": patches_info
-    }    
+    return {"message": "Image uploaded successfully!"}    
 
 @app.post("/select/")
 async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(...), y2: int = Form(...)):
@@ -69,15 +52,16 @@ async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(
     selected_patch = image[y1:y2, x1:x2]
     max_dim = max(selected_patch.shape)
     query_patch = cv2.resize(selected_patch, (224, 224))
-
     # Call function to split image into patches
-    temp_dir, patches_info = split_image_into_patches(image, max_dim)
+    temp_dir = split_image_into_patches(image, max_dim)
     extractor = app.state.extractor
     model = app.state.model
-    create_embeddings(temp_dir, extractor, model)
-    dataset_embeddings = get_embeddings_and_faiss_index()
-    # Find similar objects
-    scores, retrieved_examples = get_neighbors(extractor, model, dataset_embeddings, query_patch, 3)
+    dataset = load_dataset("imagefolder", data_dir=temp_dir)
+    train_dataset = dataset['train']    
+    dataset_with_embeddings = train_dataset.map(lambda example: 
+                            {'embeddings': extract_embeddings(example["image"], extractor, model)})
+    dataset_with_embeddings.add_faiss_index(column='embeddings')
+    scores, retrieved_examples = get_neighbors(extractor, model, dataset_with_embeddings, query_patch, 3)
     coords = np.array(retrieved_examples['coords'])
     # Normalize scores
     min_val, max_val = np.min(scores), np.max(scores)
