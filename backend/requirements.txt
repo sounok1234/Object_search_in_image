@@ -1,0 +1,9 @@
+fastapi 
+transformers
+opencv-python
+numpy
+jsonlines
+google-cloud-storage
+torch
+datasets
+faiss-cpu
