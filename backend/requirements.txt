@@ -1,4 +1,5 @@
-fastapi 
+fastapi
+uvicorn
 transformers
 opencv-python
 numpy
@@ -7,3 +8,5 @@ google-cloud-storage
 torch
 datasets
 faiss-cpu
+python-multipart
+pillow

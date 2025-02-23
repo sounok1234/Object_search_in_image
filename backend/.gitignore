@@ -1,8 +1,0 @@
-/patches_train
-/old_embeddings
-/archive
-/__pycache__
-/.ipynb_checkpoints
-*.faiss
-*.json
-*.jsonl

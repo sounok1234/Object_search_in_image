@@ -4,7 +4,12 @@ POC to find similar objects in an image from an object selection
 
 ## Run the app locally: 
 
-uvicorn app:app --reload
+docker-compose up --build
+
+## Deploy backend: 
+
+/backend gcloud builds submit --tag gcr.io/<project-id>/backend
+gcloud run deploy backend --image gcr.io/<project-id>/backend --platform managed --region us-central1 --allow-unauthenticated
 
 ## Improvements:
 
@@ -15,8 +20,3 @@ uvicorn app:app --reload
 4. Free GPU access
 5. Single object search across multiple images
 6. Support multiple users and super large images 
-
-## Extra libraries
-
-1. python-multipart
-2. torch 
