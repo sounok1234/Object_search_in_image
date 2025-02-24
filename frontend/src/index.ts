@@ -1,136 +1,145 @@
-import axios from 'axios';
+import axios from "axios";
+import './styles.scss';
 
-let image: HTMLImageElement | null = null;
-let startX: number = 0;
-let startY: number = 0;
-let drawing: boolean = false;
-let canvas: HTMLCanvasElement | null = null;
-let ctx: CanvasRenderingContext2D | null = null;
-let rect: { startX: number, startY: number, endX: number, endY: number } = { startX: 0, startY: 0, endX: 0, endY: 0 };
+const BUCKET_NAME = "faiss-storage-1234";
+const IMAGE_FOLDER = "uploads";
+const JSON_FOLDER = "metadata";
 
-const imageInput: HTMLInputElement = document.getElementById("imageInput") as HTMLInputElement;
-const uploadButton: HTMLButtonElement = document.getElementById("uploadButton") as HTMLButtonElement;
+const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d")!;
+const upload = document.getElementById("upload") as HTMLInputElement;
+const submitBtn = document.getElementById("submit") as HTMLButtonElement;
 
-imageInput.addEventListener("change", handleImageUpload);
-uploadButton.addEventListener("click", (event) => {
-  const imageFile = (imageInput.files && imageInput.files[0]) ? imageInput.files[0] : null;
-  if (imageFile) {
-    uploadImageAndMetadata(imageFile, [rect]);
-  } else {
-    alert("No image selected.");
-  }
+let img = new Image();
+let drawing = false;
+let startX = 0, startY = 0, endX = 0, endY = 0;
+let rectangles: { x: number; y: number; width: number; height: number }[] = [];
+let imageFile: File | null = null;
+
+// Handle image upload
+upload.addEventListener("change", (event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) {
+        imageFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    }
 });
 
-function handleImageUpload(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      image = new Image();
-      image.onload = initializeCanvas;
-      image.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  }
-}
+// Draw image onto canvas after loading
+img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+};
 
-function initializeCanvas() {
-  if (!image) return;
-
-  canvas = document.getElementById("canvas") as HTMLCanvasElement;
-  ctx = canvas?.getContext("2d")!;
-  canvas.width = image.width;
-  canvas.height = image.height;
-
-  ctx?.drawImage(image, 0, 0);
-
-  // Enable upload button
-  uploadButton.disabled = false;
-
-  // Enable drawing rectangle
-  canvas?.addEventListener("mousedown", startDraw);
-  canvas?.addEventListener("mousemove", drawRectangle);
-  canvas?.addEventListener("mouseup", endDraw);
-}
-
-function startDraw(event: MouseEvent) {
-  if (canvas && ctx && image) {
+// Start drawing rectangle
+canvas.addEventListener("mousedown", (event) => {
     drawing = true;
     startX = event.offsetX;
     startY = event.offsetY;
-  }
-}
+});
 
-function drawRectangle(event: MouseEvent) {
-  if (!drawing || !canvas || !ctx) return;
+// Draw rectangle dynamically
+canvas.addEventListener("mousemove", (event) => {
+    if (!drawing) return;
+    
+    endX = event.offsetX;
+    endY = event.offsetY;
 
-  const endX = event.offsetX;
-  const endY = event.offsetY;
-  rect = { startX, startY, endX, endY };
+    // Redraw everything
+    redrawCanvas();
+    
+    // Draw new rectangle
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+});
 
-  redrawCanvas();
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(startX, startY, endX - startX, endY - startY);
-}
-
-function endDraw() {
-  drawing = false;
-}
-
-function redrawCanvas() {
-  if (!canvas || !ctx || !image) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(image, 0, 0);
-}
-
-// Function to get a signed URL from Google Cloud Storage
-async function getSignedUrl(filename: string, contentType: string) {
-  const response = await axios.post(
-    `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=resumable&name=${filename}`,
-    {},
-    {
-      headers: {
-        "Content-Type": contentType,
-        Authorization: `Bearer YOUR_ACCESS_TOKEN`, // Replace with actual token
-      },
+// Save rectangle when mouse released
+canvas.addEventListener("mouseup", () => {
+    if (drawing) {
+        rectangles.push({
+            x: startX,
+            y: startY,
+            width: endX - startX,
+            height: endY - startY
+        });
     }
-  );
-  return response.headers.location;
+    drawing = false;
+});
+
+// Redraw canvas (image + stored rectangles)
+function redrawCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+
+    rectangles.forEach(rect => {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    });
 }
 
-// Function to upload file to GCS
-async function uploadToGCS(signedUrl: string, file: Blob) {
-  await axios.put(signedUrl, file, {
-    headers: { "Content-Type": file.type },
-  });
-}
+// Upload image + metadata to GCS
+submitBtn.addEventListener("click", async () => {
+    if (!imageFile || rectangles.length === 0) {
+        alert("Upload an image and draw at least one rectangle.");
+        return;
+    }
 
-// Function to upload the image and rectangle metadata
-async function uploadImageAndMetadata(imageFile: File, rectangles: any[]) {
-  try {
-    // Step 1: Generate unique filenames
-    const timestamp = Date.now();
-    const imageFilename = `${IMAGE_FOLDER}/${timestamp}.png`;
-    const jsonFilename = `${JSON_FOLDER}/${timestamp}.json`;
+    try {
+        // Step 1: Generate unique filenames
+        const uuid = crypto.randomUUID(); // Generates a unique ID
 
-    // Step 2: Get signed URLs
-    const imageSignedUrl = await getSignedUrl(imageFilename, "image/png");
-    const jsonSignedUrl = await getSignedUrl(jsonFilename, "application/json");
+        // Step 2: Prepare FormData
+        const formData = new FormData();
+        formData.append("file", imageFile); // Append the image
+        formData.append("uuid", uuid); // Append the unique identifier
+        formData.append("rectangles", JSON.stringify(rectangles)); // Append rectangle data
 
-    // Step 3: Upload Image
-    await uploadToGCS(imageSignedUrl, imageFile);
+        // Step 3: Send to FastAPI backend
+        const response = await fetch("https://object-search-961989467540.us-central1.run.app/upload/", {
+            method: "POST",
+            body: formData
+        });
 
-    // Step 4: Upload Rectangle Metadata
-    const metadata = JSON.stringify({ imageUrl: `https://storage.googleapis.com/${BUCKET_NAME}/${imageFilename}`, rectangles });
-    const metadataBlob = new Blob([metadata], { type: "application/json" });
-    await uploadToGCS(jsonSignedUrl, metadataBlob);
+        // Step 4: Handle the response
+        const result = await response.json();
+        if (response.ok) {
+            alert("Image uploaded successfully! UUID: " + uuid);
+            rectangles = []; // Clear rectangles after upload
+            redrawCanvas(); // Reset canvas
+        } else {
+            throw new Error(result.error || "Upload failed.");
+        }
+    } catch (error) {
+        console.error("Upload failed:", error);
+        alert("Upload failed.");
+    }
+});
 
-    console.log("Upload successful!");
-    alert("Image and metadata uploaded successfully!");
+// Get a signed URL from GCS
+// async function getSignedUrl(filename: string, contentType: string) {
+//     const response = await axios.post(
+//         `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=resumable&name=${filename}`,
+//         {},
+//         {
+//             headers: {
+//                 "Content-Type": contentType,
+//                 Authorization: `Bearer YOUR_ACCESS_TOKEN`, // Replace with actual token
+//             },
+//         }
+//     );
+//     return response.headers.location;
+// }
 
-  } catch (error) {
-    console.error("Upload failed:", error);
-    alert("Upload failed.");
-  }
-}
+// // Upload file to GCS
+// async function uploadToGCS(signedUrl: string, file: Blob) {
+//     await axios.put(signedUrl, file, {
+//         headers: { "Content-Type": file.type },
+//     });
+// }

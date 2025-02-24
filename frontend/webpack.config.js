@@ -1,15 +1,13 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const CopyPlugin = require("copy-webpack-plugin");
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
   devtool: 'eval-source-map',
   entry: './src/index.ts',
   output: {
-    // publicPath: 'public',
     filename: '[name][contenthash].js',
     path: path.resolve(__dirname, 'dist'),
-    assetModuleFilename: 'assets/[name][ext]',
     clean: true
   },
   module: {
@@ -18,11 +16,16 @@ module.exports = {
         test: /\.ts$/,
         include: [path.resolve(__dirname, 'src')],
         use: 'ts-loader',
-      }, 
+      },
       {
-        test: /\.(png|jpg|jpeg|gif)$/i,
-        type: 'asset/resource'
-      }
+        test: /\.scss$/,  // Process SCSS and output a separate CSS file
+        use: [
+          MiniCssExtractPlugin.loader, // Extracts CSS into separate file
+          'css-loader', 
+          'sass-loader'
+        ],
+        include: path.resolve(__dirname, 'src'),
+      },
     ]
   },
   resolve: {
@@ -30,15 +33,13 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      title: 'Graph Edit App',
+      title: 'Object search in images',
       filename: 'index.html',
       template: 'src/template.html',
-    }), 
-    new CopyPlugin({
-      patterns: [
-        { from: 'src/assets', to: 'assets' }
-      ]
-    })
+    }),
+    new MiniCssExtractPlugin({
+      filename: 'styles.css',
+    }),
   ],
   mode: 'development'
 };

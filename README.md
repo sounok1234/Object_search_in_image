@@ -33,10 +33,17 @@ npm run build
 
 ## Improvements:
 
-1. Improve scaling for patches for time efficiency 
+# Backend
+1. Improve scaling for patches for time efficiency (and super large images)
 2. Filter out patches based on color 
-3. Improve the UI (add slider for number of patches to show)
-   Add save option for image and detected patches
-4. Free GPU access
-5. Single object search across multiple images
-6. Support multiple users and super large images 
+3. Add GPU access
+4. Single object search across multiple images
+5. Signed url for images
+
+# Frontend
+1. Improve the UI (add slider for number of patches to show)
+2. Add save option for detected patches and image
+3. Add user login and authentication
+4. Add undo/redo for drawing patch
+5. Add user guides
+
