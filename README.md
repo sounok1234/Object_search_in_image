@@ -9,7 +9,6 @@ docker-compose up --build
 ## Deploy backend: 
 
 /backend gcloud builds submit --tag gcr.io/<project-id>/backend
-gcloud run deploy backend --image gcr.io/<project-id>/backend --platform managed --region us-central1 --allow-unauthenticated
 
 ## Run the frontend app locally:
 
@@ -41,7 +40,7 @@ npm run build
 5. Signed url for images
 
 # Frontend
-1. Improve the UI (add slider for number of patches to show)
+1. Improve the UI (add slider for number of objects to show)
 2. Add save option for detected patches and image
 3. Add user login and authentication
 4. Add undo/redo for drawing patch
