@@ -1,4 +1,8 @@
+import json
+import shutil
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from transformers import AutoModel, ViTImageProcessor
 import cv2
 import numpy as np
@@ -12,40 +16,33 @@ import gc
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 app = FastAPI()
+# Configure CORS settings
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins, change this for security
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
-# Initialize image 
-app.state.image = None
-app.state.boxes = None
-
-@app.post("/upload/")
-async def upload_image(file: UploadFile = File(...)):
-    """
-    Uploads an image, splits it into patches, and generates embeddings.
-    """
-    # Read the uploaded image
-    contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    if image is None:
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    app.state.image = image
-
-    return {"message": "Image uploaded successfully!"}    
-
-@app.post("/select/")
-async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(...), 
-                       y2: int = Form(...), num_of_objects: int = Form(...)):
+@app.post("/find_objects/")
+async def find_objects(
+    uuid: str = Form(...), 
+    file: UploadFile = File(...), 
+    rectangle: str = Form(...)
+):
     """
     User selects a bounding box on the image to search for similar objects.
     """
-    """Load dataset embeddings & FAISS index from GCS."""    
-
     # Load the uploaded image
-    image = app.state.image
+    image = file.file.read()
+    nparr = np.frombuffer(image, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if image is None:
         raise HTTPException(status_code=400, detail="No image uploaded")
+    
+    rect_data = json.loads(rectangle)
+    x1, y1, x2, y2 = rect_data["x1"], rect_data["y1"], rect_data["x2"], rect_data["y2"]
     
     model_ckpt = "facebook/deit-small-patch16-224"
     extractor = ViTImageProcessor.from_pretrained(model_ckpt) 
@@ -65,23 +62,15 @@ async def select_patch(x1: int = Form(...), y1: int = Form(...), x2: int = Form(
     dataset_with_embeddings = train_dataset.map(lambda example: 
                             {'embeddings': dataset_init.extract_embeddings(example['image'])})
     dataset_with_embeddings.add_faiss_index(column='embeddings')
-    boxes, indices = dataset_init.get_neighbors(dataset_with_embeddings, query_patch, num_of_objects)
-    app.state.boxes = boxes
-    # Clear memory
+    boxes, indices = dataset_init.get_neighbors(dataset_with_embeddings, query_patch, 50)
+    # Clear memory and local database
     del dataset_with_embeddings, dataset_init, train_dataset, dataset
     gc.collect()
-    # Draw rectangles for detected objects
-    for i in indices:
-        x, y, x2, y2 = boxes[i]
-        cv2.rectangle(image, (x, y), (x2, y2), (0, 0, 255), 2)
-
-    return {"message": "Similar objects found"}
-
-@app.get("/download_json/")
-async def download_output():
-    """
-    Endpoint to download the json for the bboxes for the original image
-    """
-    if not os.path.exists("output.jpg"):
-        raise HTTPException(status_code=400, detail="No processed image available.")
-    return {"output_image": "output.jpg"}
+    shutil.rmtree(temp_dir, ignore_errors=True)
+    # Send data to frontend
+    return JSONResponse(content={
+        "message": "File received",
+        "uuid": uuid,
+        "boxes": boxes,
+        "indices": indices.tolist()
+    })

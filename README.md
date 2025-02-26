@@ -38,6 +38,7 @@ npm run build
 3. Add GPU access
 4. Single object search across multiple images
 5. Signed url for images
+6. Add task queue to accomodate concurrency 
 
 # Frontend
 1. Improve the UI (add slider for number of objects to show)
@@ -45,4 +46,5 @@ npm run build
 3. Add user login and authentication
 4. Add undo/redo for drawing patch
 5. Add user guides
+6. Use WebSockets for Real-Time Responses
 

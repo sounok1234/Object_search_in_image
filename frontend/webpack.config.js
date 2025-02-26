@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const DotenvWebpackPlugin = require('dotenv-webpack');
 
 module.exports = {
   devtool: 'eval-source-map',
@@ -40,6 +41,16 @@ module.exports = {
     new MiniCssExtractPlugin({
       filename: 'styles.css',
     }),
+    new DotenvWebpackPlugin(),
   ],
-  mode: 'development'
+  mode: 'development',
+  devServer: {
+    static: {
+      directory: path.join(__dirname, 'dist'),
+    },
+    compress: true,
+    port: 8000,
+    hot: true,
+    open: true,
+  },
 };

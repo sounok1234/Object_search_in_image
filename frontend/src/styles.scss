@@ -84,6 +84,9 @@ body {
     .input-container label {
         font-size: 1rem;
         font-weight: bold;
+        white-space: nowrap; 
+        overflow: hidden;    
+        text-overflow: ellipsis;
     }
 
     #numInput {
@@ -104,7 +107,7 @@ body {
 }
 
 #canvas-container {
-    flex-grow: 1;
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;

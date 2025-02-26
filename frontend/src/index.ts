@@ -1,24 +1,107 @@
-import axios from "axios";
 import './styles.scss';
 import { v4 as uuidv4 } from 'uuid';
 
-const BUCKET_NAME = "faiss-storage-1234";
-const IMAGE_FOLDER = "uploads";
-const JSON_FOLDER = "metadata";
-
+// DOM Elements
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-const ctx = canvas.getContext("2d")! as CanvasRenderingContext2D;
+const ctx = canvas.getContext("2d")!;
 const upload = document.getElementById("upload") as HTMLInputElement;
 const submitBtn = document.getElementById("submit") as HTMLButtonElement;
+const sidebar = document.getElementById("sidebar") as HTMLElement;
+const numInput = document.getElementById("numInput") as HTMLInputElement | null;
 
+// Backend URL and user requests map
+const url = process.env.BACKEND_URL || "";
+const userRequests = new Map<string, boolean>();
+
+// Image and Canvas Properties
 let img = new Image();
+let imageFile: File | null = null;
+let imageWidth = 0, imageHeight = 0;
+let canvasWidth = 0, canvasHeight = 0;
+
+// Drawing state
 let drawing = false;
 let startX = 0, startY = 0, endX = 0, endY = 0;
 let rectangle: { x: number; y: number; width: number; height: number } | null = null;
-let imageFile: File | null = null;
 
-// Handle image upload
-upload.addEventListener("change", (event) => {
+/** 
+ * Adjusts canvas size dynamically 
+ */
+function resizeCanvas(): void {
+    const sidebarWidth = sidebar.offsetWidth;
+    canvas.width = window.innerWidth - sidebarWidth;
+    canvas.height = window.innerHeight;
+    canvasWidth = canvas.width;
+    canvasHeight = canvas.height;
+    resizeImageToFitCanvas();
+}
+
+/** 
+ * Resizes and centers the image on the canvas while maintaining aspect ratio
+ */
+function resizeImageToFitCanvas(): void {
+    const scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
+    const scaledWidth = imageWidth * scale;
+    const scaledHeight = imageHeight * scale;
+    const offsetX = (canvasWidth - scaledWidth) / 2;
+    const offsetY = (canvasHeight - scaledHeight) / 2;
+    redrawCanvas(offsetX, offsetY, scaledWidth, scaledHeight);
+}
+
+/**
+ * Redraws the image and any existing rectangles
+ */
+function redrawCanvas(offsetX: number, offsetY: number, scaledWidth: number, scaledHeight: number): void {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+    if (rectangle) {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+    }
+}
+
+/**
+ * Draws the detected object rectangles from backend response
+ */
+function drawDetectedRectangles(boxes: number[][], indices: number[], numOfObj: number): void {
+    const scaleX = canvasWidth / imageWidth;
+    const scaleY = canvasHeight / imageHeight;
+    const numOfObjects = indices.slice(0, numOfObj);
+
+    numOfObjects.forEach((index) => {
+        if (index >= 0 && index < boxes.length) {
+            const [x1, y1, x2, y2] = boxes[index];
+
+            const x = x1 * scaleX;
+            const y = y1 * scaleY;
+            const width = (x2 - x1) * scaleX;
+            const height = (y2 - y1) * scaleY;
+
+            ctx.strokeStyle = "green";  // Set stroke color to green
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+        }
+    });
+}
+
+/**
+ * Gets the mouse position adjusted for canvas scaling
+ */
+function getMousePos(event: MouseEvent): { x: number; y: number } {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+    };
+}
+
+/**
+ * Handles image upload and loads it into the canvas
+ */
+function handleImageUpload(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {
         imageFile = file;
@@ -28,41 +111,59 @@ upload.addEventListener("change", (event) => {
         };
         reader.readAsDataURL(file);
     }
-});
-
-const numInput = document.getElementById("numInput") as HTMLInputElement | null;
-if (numInput) {
-    // Ensure only integers are allowed
-    numInput.addEventListener("input", () => {
-        numInput.value = Math.round(Number(numInput.value)).toString();
-    });
 }
 
-// Ensure canvas matches image size
+/**
+ * Uploads the image and rectangle metadata to the backend
+ */
+async function handleSubmit(): Promise<void> {
+    if (!imageFile || !rectangle) {
+        alert("Upload an image and draw a rectangle.");
+        return;
+    }
+
+    try {
+        const uuid = uuidv4();
+        userRequests.set(uuid, true);
+
+        const x = Math.round((rectangle.x / canvasWidth) * imageWidth);
+        const y = Math.round((rectangle.y / canvasHeight) * imageHeight);
+        const adjustedRectangle = {
+            x1: x,
+            y1: y,
+            x2: Math.round((rectangle.width / canvasWidth) * imageWidth + x),
+            y2: Math.round((rectangle.height / canvasHeight) * imageHeight + y)
+        };
+
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        formData.append("uuid", uuid);
+        formData.append("rectangle", JSON.stringify(adjustedRectangle));
+
+        const response = await fetch(url, { method: "POST", body: formData });
+        const result = await response.json();
+
+        if (userRequests.has(result.uuid)) {
+            console.log("Response for UUID:", result.uuid, "->", result);
+            drawDetectedRectangles(result['boxes'], result['indices'], Number(numInput?.value));
+            userRequests.delete(result.uuid);
+        }
+    } catch (error) {
+        console.error("Upload failed:", error);
+        alert("Upload failed.");
+    }
+}
+
+// Event Listeners
+
+// Image load event to adjust canvas size
 img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    // Apply the same size to prevent CSS scaling issues
-    canvas.style.width = `${img.width}px`;
-    canvas.style.height = `${img.height}px`;
-
-    ctx.drawImage(img, 0, 0);
+    imageWidth = img.naturalWidth;
+    imageHeight = img.naturalHeight;
+    resizeCanvas();
 };
 
-// Function to get correct mouse position, adjusting for canvas scaling
-function getMousePos(event: MouseEvent): { x: number; y: number } {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    return {
-        x: (event.clientX - rect.left) * scaleX,
-        y: (event.clientY - rect.top) * scaleY
-    };
-}
-
-// Start drawing rectangle
+// Mouse events for drawing a rectangle
 canvas.addEventListener("mousedown", (event: MouseEvent) => {
     drawing = true;
     const pos = getMousePos(event);
@@ -70,110 +171,24 @@ canvas.addEventListener("mousedown", (event: MouseEvent) => {
     startY = pos.y;
 });
 
-// Draw rectangle dynamically
 canvas.addEventListener("mousemove", (event: MouseEvent) => {
     if (!drawing) return;
-
     const pos = getMousePos(event);
     endX = pos.x;
     endY = pos.y;
-
-    // Calculate rectangle properties
-    const x = Math.min(startX, endX);
-    const y = Math.min(startY, endY);
-    const width = Math.abs(endX - startX);
-    const height = Math.abs(endY - startY);
-
-    // Redraw everything
-    redrawCanvas();
-
-    // Draw new rectangle
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, width, height);
+    
+    rectangle = {
+        x: Math.min(startX, endX),
+        y: Math.min(startY, endY),
+        width: Math.abs(endX - startX),
+        height: Math.abs(endY - startY)
+    };
+    resizeImageToFitCanvas();
 });
 
-// Save rectangle when mouse released
-canvas.addEventListener("mouseup", () => {
-    if (drawing) {
-        const x = Math.min(startX, endX);
-        const y = Math.min(startY, endY);
-        const width = Math.abs(endX - startX);
-        const height = Math.abs(endY - startY);
+canvas.addEventListener("mouseup", () => drawing = false);
 
-        rectangle = { x, y, width, height };
-    }
-    drawing = false;
-});
-
-// Function to redraw the canvas (image + stored rectangles)
-function redrawCanvas(): void {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0);
-
-    if (rectangle !== null) {
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
-    }
-}
-
-// Upload image + metadata to GCS
-submitBtn.addEventListener("click", async () => {
-    if (!imageFile || rectangle === null) {
-        alert("Upload an image and d|raw at least one rectangle.");
-        return;
-    }
-
-    try {
-        // Step 1: Generate unique filenames
-        const uuid = uuidv4(); // Generates a unique ID
-
-        // Step 2: Prepare FormData
-        const formData = new FormData();
-        formData.append("file", imageFile); // Append the image
-        formData.append("uuid", uuid); // Append the unique identifier
-        formData.append("rectangles", JSON.stringify(rectangle)); // Append rectangle data
-
-        // Step 3: Send to FastAPI backend
-        const response = await fetch("https://object-search-961989467540.us-central1.run.app/upload/", {
-            method: "POST",
-            body: formData
-        });
-
-        // Step 4: Handle the response
-        const result = await response.json();
-        if (response.ok) {
-            alert("Image uploaded successfully! UUID: " + uuid);
-            rectangle = null; // Clear rectangles after upload
-            redrawCanvas(); // Reset canvas
-        } else {
-            throw new Error(result.error || "Upload failed.");
-        }
-    } catch (error) {
-        console.error("Upload failed:", error);
-        alert("Upload failed.");
-    }
-});
-
-// Get a signed URL from GCS
-// async function getSignedUrl(filename: string, contentType: string) {
-//     const response = await axios.post(
-//         `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=resumable&name=${filename}`,
-//         {},
-//         {
-//             headers: {
-//                 "Content-Type": contentType,
-//                 Authorization: `Bearer YOUR_ACCESS_TOKEN`, // Replace with actual token
-//             },
-//         }
-//     );
-//     return response.headers.location;
-// }
-
-// // Upload file to GCS
-// async function uploadToGCS(signedUrl: string, file: Blob) {
-//     await axios.put(signedUrl, file, {
-//         headers: { "Content-Type": file.type },
-//     });
-// }
+// Attach event listeners
+upload.addEventListener("change", handleImageUpload);
+submitBtn.addEventListener("click", handleSubmit);
+window.addEventListener("resize", resizeCanvas);
