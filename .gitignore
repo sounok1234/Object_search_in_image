@@ -6,7 +6,9 @@ __pycache__/
 node_modules/
 dist/
 object-search-image.json
+.vercel
 *.env
 *.faiss
 *.jsonl
 *.ipynb
+
