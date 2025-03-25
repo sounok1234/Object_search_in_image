@@ -4,11 +4,15 @@ POC to find similar objects in an image from an object selection
 
 ## Run the backend app locally: 
 
+```
 docker-compose up --build
+```
 
-## Deploy backend: 
+## Deploy backend:
 
+```
 /backend gcloud builds submit --tag gcr.io/<project-id>/backend
+```
 
 ## Run the frontend app locally:
 
@@ -37,8 +41,8 @@ npm run build
 2. Filter out patches based on color 
 3. Add GPU access
 4. Single object search across multiple images
-5. Signed url for images
-6. Add task queue to accomodate concurrency 
+5. Signed URL for images
+6. Add task queue to accommodate concurrency 
 
 # Frontend
 1. Improve the UI (add slider for number of objects to show)
