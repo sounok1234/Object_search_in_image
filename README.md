@@ -4,7 +4,9 @@ POC to find similar objects in an image from an object selection
 
 ## Run the backend app locally: 
 
+```
 docker-compose up --build
+```
 
 ## Run the frontend app locally:
 
