@@ -6,10 +6,6 @@ POC to find similar objects in an image from an object selection
 
 docker-compose up --build
 
-## Deploy backend: 
-
-/backend gcloud builds submit --tag gcr.io/<project-id>/backend
-
 ## Run the frontend app locally:
 
 1. Install the required node modules:
@@ -38,7 +34,8 @@ npm run build
 3. Add GPU access
 4. Single object search across multiple images
 5. Signed url for images
-6. Add task queue to accomodate concurrency 
+6. Add task queue to accomodate concurrency
+7. Give option for different models
 
 # Frontend
 1. Improve the UI (add slider for number of objects to show)
@@ -47,4 +44,4 @@ npm run build
 4. Add undo/redo for drawing patch
 5. Add user guides
 6. Use WebSockets for Real-Time Responses
-
+7. Same as backend no 7

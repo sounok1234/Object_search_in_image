@@ -18,6 +18,8 @@ let img = new Image();
 let imageFile: File | null = null;
 let imageWidth = 0, imageHeight = 0;
 let canvasWidth = 0, canvasHeight = 0;
+let offsetX = 0, offsetY = 0;
+let scale = 1; 
 
 // Drawing state
 let drawing = false;
@@ -40,11 +42,11 @@ function resizeCanvas(): void {
  * Resizes and centers the image on the canvas while maintaining aspect ratio
  */
 function resizeImageToFitCanvas(): void {
-    const scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
+    scale = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
     const scaledWidth = imageWidth * scale;
     const scaledHeight = imageHeight * scale;
-    const offsetX = (canvasWidth - scaledWidth) / 2;
-    const offsetY = (canvasHeight - scaledHeight) / 2;
+    offsetX = (canvasWidth - scaledWidth) / 2;
+    offsetY = (canvasHeight - scaledHeight) / 2;
     redrawCanvas(offsetX, offsetY, scaledWidth, scaledHeight);
 }
 
@@ -64,24 +66,18 @@ function redrawCanvas(offsetX: number, offsetY: number, scaledWidth: number, sca
 /**
  * Draws the detected object rectangles from backend response
  */
-function drawDetectedRectangles(boxes: number[][], indices: number[], numOfObj: number): void {
-    const scaleX = canvasWidth / imageWidth;
-    const scaleY = canvasHeight / imageHeight;
-    const numOfObjects = indices.slice(0, numOfObj);
+function drawDetectedRectangles(boxes: number[][], numOfObj: number): void {
+    const boxesToDraw = boxes.slice(0, numOfObj);
 
-    numOfObjects.forEach((index) => {
-        if (index >= 0 && index < boxes.length) {
-            const [x1, y1, x2, y2] = boxes[index];
+    boxesToDraw.forEach(([x1, y1, x2, y2]) => {
+        const x = x1 * scale + offsetX;
+        const y = y1 * scale + offsetY;
+        const width = (x2 - x1) * scale;
+        const height = (y2 - y1) * scale;
 
-            const x = x1 * scaleX;
-            const y = y1 * scaleY;
-            const width = (x2 - x1) * scaleX;
-            const height = (y2 - y1) * scaleY;
-
-            ctx.strokeStyle = "green";  // Set stroke color to green
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, width, height);
-        }
+        ctx.strokeStyle = "green";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
     });
 }
 
@@ -145,7 +141,7 @@ async function handleSubmit(): Promise<void> {
 
         if (userRequests.has(result.uuid)) {
             console.log("Response for UUID:", result.uuid, "->", result);
-            drawDetectedRectangles(result['boxes'], result['indices'], Number(numInput?.value));
+            drawDetectedRectangles(result['boxes'], Number(numInput?.value));
             userRequests.delete(result.uuid);
         }
     } catch (error) {

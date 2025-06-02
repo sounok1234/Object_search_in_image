@@ -39,11 +39,12 @@ async def find_objects(
     nparr = np.frombuffer(image, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if image is None:
-        raise HTTPException(status_code=400, detail="No image uploaded")
-    
+        raise HTTPException(status_code=400, detail="No image uploaded")    
+
     rect_data = json.loads(rectangle)
     x1, y1, x2, y2 = rect_data["x1"], rect_data["y1"], rect_data["x2"], rect_data["y2"]
-    
+
+    # Initialize model and image processor
     model_ckpt = "facebook/deit-small-patch16-224"
     extractor = ViTImageProcessor.from_pretrained(model_ckpt) 
     model = AutoModel.from_pretrained(model_ckpt)
@@ -62,7 +63,8 @@ async def find_objects(
     dataset_with_embeddings = train_dataset.map(lambda example: 
                             {'embeddings': dataset_init.extract_embeddings(example['image'])})
     dataset_with_embeddings.add_faiss_index(column='embeddings')
-    boxes, indices = dataset_init.get_neighbors(dataset_with_embeddings, query_patch, 50)
+    boxes = dataset_init.get_neighbors(dataset_with_embeddings, query_patch, 50)
+
     # Clear memory and local database
     del dataset_with_embeddings, dataset_init, train_dataset, dataset
     gc.collect()
@@ -72,5 +74,4 @@ async def find_objects(
         "message": "File received",
         "uuid": uuid,
         "boxes": boxes,
-        "indices": indices.tolist()
     })
