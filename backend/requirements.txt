@@ -6,6 +6,7 @@ numpy
 jsonlines
 google-cloud-storage
 torch
+torchvision
 datasets
 faiss-cpu
 python-multipart
