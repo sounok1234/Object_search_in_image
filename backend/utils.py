@@ -26,6 +26,6 @@ class DatasetWithEmbeddings:
         # Apply Non-Maximum Suppression (NMS)
         boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
         scores_tensor = torch.tensor(normalized_scores, dtype=torch.float32)
-        filtered_indices = nms(boxes_tensor, scores_tensor, iou_threshold=0.3).tolist()
+        filtered_indices = nms(boxes_tensor, scores_tensor, iou_threshold=0.49).tolist()
         filtered_boxes = [boxes[i] for i in filtered_indices]
         return filtered_boxes
