@@ -38,6 +38,7 @@ npm run build
 5. Signed url for images
 6. Add task queue to accomodate concurrency
 7. Give option for different models
+8. Give option for custom object shapes
 
 # Frontend
 1. Improve the UI (add slider for number of objects to show)
@@ -46,4 +47,5 @@ npm run build
 4. Add undo/redo for drawing patch
 5. Add user guides
 6. Use WebSockets for Real-Time Responses
-7. Same as backend no 7
+7. Drowdown to provide model options for backend 7
+8. Update frontend tools for custom shape drawing for backend 8
