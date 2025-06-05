@@ -122,14 +122,16 @@ async function handleSubmit(): Promise<void> {
         const uuid = uuidv4();
         userRequests.set(uuid, true);
 
-        const x = Math.round((rectangle.x / canvasWidth) * imageWidth);
-        const y = Math.round((rectangle.y / canvasHeight) * imageHeight);
+        const x = Math.round((rectangle.x - offsetX) / scale);
+        const y = Math.round((rectangle.y - offsetY) / scale);
         const adjustedRectangle = {
             x1: x,
             y1: y,
-            x2: Math.round((rectangle.width / canvasWidth) * imageWidth + x),
-            y2: Math.round((rectangle.height / canvasHeight) * imageHeight + y)
+            x2: Math.round((rectangle.width / scale) + x),
+            y2: Math.round((rectangle.height / scale) + y)
         };
+
+        console.log("Submitting rectangle:", adjustedRectangle);
 
         const formData = new FormData();
         formData.append("file", imageFile);
