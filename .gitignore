@@ -5,6 +5,7 @@ __pycache__/
 .ipynb_checkpoints/
 node_modules/
 dist/
+models/
 object-search-image.json
 release_notes.md
 .vercel

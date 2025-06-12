@@ -45,17 +45,17 @@ async def find_objects(
     x1, y1, x2, y2 = rect_data["x1"], rect_data["y1"], rect_data["x2"], rect_data["y2"]
 
     # Initialize model and image processor
-    model_ckpt = "facebook/deit-small-patch16-224"
-    extractor = ViTImageProcessor.from_pretrained(model_ckpt) 
-    model = AutoModel.from_pretrained(model_ckpt)
+    extractor = ViTImageProcessor.from_pretrained("./models/deit-small") 
+    model = AutoModel.from_pretrained("./models/deit-small")
     model.config.hidden_size
 
     # Extract selected patch
     selected_patch = image[y1:y2, x1:x2]
-    max_dim = max(selected_patch.shape)
+    # max_dim = max(selected_patch.shape)
+    patch_height, patch_width = selected_patch.shape[:2]
     query_patch = cv2.resize(selected_patch, (224, 224))
     # Call function to split image into patches
-    temp_dir = split_image_into_patches(image, max_dim)
+    temp_dir = split_image_into_patches(image, patch_height, patch_width)
     # Get similar patches
     dataset = load_dataset("imagefolder", data_dir=temp_dir)
     train_dataset = dataset['train']
