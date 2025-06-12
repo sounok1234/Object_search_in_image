@@ -5,8 +5,9 @@ opencv-python
 numpy
 jsonlines
 google-cloud-storage
+shapely
+rtree
 torch
-torchvision
 datasets
 faiss-cpu
 python-multipart

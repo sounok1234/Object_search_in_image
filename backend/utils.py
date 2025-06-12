@@ -1,7 +1,22 @@
+import cv2
+from shapely.geometry import box as shapely_box
+from rtree import index
 import numpy as np
-from torchvision.ops import nms
-import torch
 
+
+def remove_overlaps_spatial(boxes):
+    idx = index.Index()
+    selected = []
+    
+    for i, b in enumerate(boxes):
+        b_geom = shapely_box(*b)
+        hits = list(idx.intersection(b, objects=True))
+        
+        if not any(shapely_box(*boxes[hit.id]).intersects(b_geom) for hit in hits):
+            idx.insert(i, b)
+            selected.append(b)
+    
+    return selected
 
 class DatasetWithEmbeddings:
     def __init__(self, extractor, model):
@@ -24,8 +39,8 @@ class DatasetWithEmbeddings:
         # Get boxes from coords
         boxes = [[c[0][0], c[0][1], c[1][0], c[1][1]] for c in coords.tolist()]
         # Apply Non-Maximum Suppression (NMS)
-        boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
-        scores_tensor = torch.tensor(normalized_scores, dtype=torch.float32)
-        filtered_indices = nms(boxes_tensor, scores_tensor, iou_threshold=0.49).tolist()
-        filtered_boxes = [boxes[i] for i in filtered_indices]
-        return filtered_boxes
+        boxes_cv2 = [[x1, y1, x2 - x1, y2 - y1] for (x1, y1, x2, y2) in boxes]
+        indices = cv2.dnn.NMSBoxes(boxes_cv2, normalized_scores, score_threshold=0.0, nms_threshold=0.4)
+        filtered_boxes = [boxes[i] for i in indices]
+        final_filter = remove_overlaps_spatial(filtered_boxes)
+        return final_filter
