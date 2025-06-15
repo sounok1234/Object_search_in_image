@@ -1,6 +1,6 @@
 import json
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from transformers import AutoModel, ViTImageProcessor
@@ -24,6 +24,12 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allows all headers
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"--> {request.method} {request.url}")
+    response = await call_next(request)
+    return response
 
 @app.post("/find_objects/")
 async def find_objects(
