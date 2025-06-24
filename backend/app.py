@@ -28,6 +28,16 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     print(f"--> {request.method} {request.url}")
+    print("Headers:", dict(request.headers))
+
+    # Read body for logging (must be done carefully)
+    if request.method == "POST":
+        try:
+            body = await request.body()
+            print(f"Request body (raw): {body[:200]}...")
+        except Exception as e:
+            print("Could not read body:", e)
+
     response = await call_next(request)
     return response
 
