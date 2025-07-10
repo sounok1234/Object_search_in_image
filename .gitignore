@@ -18,3 +18,5 @@ release_notes.md
 *.jpg
 *.jpeg
 *.gif
+*.firebaserc
+*latency.py
