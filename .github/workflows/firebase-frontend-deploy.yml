@@ -40,6 +40,7 @@ jobs:
           echo "PROJECT_ID=$(jq -r .project_id sa.json)" >> $GITHUB_ENV
 
       - name: Deploy to Firebase Hosting
+        working-directory: frontend
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
