@@ -33,20 +33,11 @@ jobs:
           npm run build
           npx webpack --mode production
 
-      - name: Extract projectId from firebase.json
-        id: project_id
-        run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > sa.json
-          echo "PROJECT_ID=$(jq -r .project_id sa.json)" >> $GITHUB_ENV
-
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Check PROJECT_ID value
-        run: echo "PROJECT_ID is: $PROJECT_ID"
-
       - name: Deploy to Firebase Hosting
         working-directory: frontend
-        run: firebase deploy --only hosting --project $PROJECT_ID
+        run: firebase deploy --only hosting --project ${{ secrets.FIREBASE_PROJECT_ID }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
