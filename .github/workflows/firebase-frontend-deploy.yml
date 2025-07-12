@@ -19,9 +19,11 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
+        working-directory: frontend
         run: npm install
 
       - name: Run build and Webpack
+        working-directory: frontend
         run: |
           npm run build
           npx webpack --mode production
