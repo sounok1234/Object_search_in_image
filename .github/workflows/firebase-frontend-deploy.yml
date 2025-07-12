@@ -18,6 +18,11 @@ jobs:
         with:
           node-version: 18
 
+      - name: Create .env file from secrets
+        working-directory: frontend
+        run: |
+          echo "BACKEND_URL=${{ secrets.BACKEND_URL }}" > .env
+
       - name: Install dependencies
         working-directory: frontend
         run: npm install
