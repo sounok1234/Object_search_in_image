@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import cv2
 from shapely.geometry import box as shapely_box
 from rtree import index
 import numpy as np
+import os
 
 
 def remove_overlaps_spatial(boxes):
@@ -17,6 +20,24 @@ def remove_overlaps_spatial(boxes):
             selected.append(b)
     
     return selected
+
+def resolve_model_dir() -> str:
+    explicit_model_dir = os.getenv("MODEL_DIR")
+    candidate_paths = [
+        Path(explicit_model_dir) if explicit_model_dir else None,
+        Path(__file__).resolve().parent / "models" / "deit-small",          # deploy copy path
+        Path(__file__).resolve().parent.parent / "public_models" / "deit-small",  # local repo path
+        Path("/app/public_models/deit-small"),                               # local docker mount path
+    ]
+
+    for candidate in candidate_paths:
+        if candidate and candidate.exists():
+            return str(candidate)
+
+    searched = [str(p) for p in candidate_paths if p]
+    raise RuntimeError(
+        f"Model directory not found. Set MODEL_DIR or place model in one of: {searched}"
+    )
 
 class DatasetWithEmbeddings:
     def __init__(self, extractor, model):

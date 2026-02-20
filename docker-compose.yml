@@ -7,5 +7,7 @@ services:
       - "8080:8080"
     volumes:
       - ./backend:/app
+      - ./public_models:/app/public_models
     environment:
       - PYTHONUNBUFFERED=1
+      - MODEL_DIR=/app/public_models/deit-small

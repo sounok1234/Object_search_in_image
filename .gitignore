@@ -9,6 +9,7 @@ public_models/
 object-search-image.json
 build_deploy.bat
 release_notes.md
+latency.py
 .vercel
 *.env
 *.faiss
@@ -21,4 +22,3 @@ release_notes.md
 *.firebaserc
 *.log
 *.cache
-*latency.py

@@ -10,7 +10,8 @@ const sidebar = document.getElementById("sidebar") as HTMLElement;
 const numInput = document.getElementById("numInput") as HTMLInputElement | null;
 
 // Backend URL and user requests map
-const url = process.env.BACKEND_URL || "";
+const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const url = process.env.BACKEND_URL || (isLocalhost ? process.env.BACKEND_URL_LOCAL : process.env.BACKEND_URL_PROD) || "";
 const userRequests = new Map<string, boolean>();
 
 // Image and Canvas Properties

@@ -7,7 +7,7 @@ from transformers import AutoModel, ViTImageProcessor
 import cv2
 import numpy as np
 import os
-from utils import DatasetWithEmbeddings
+from utils import DatasetWithEmbeddings, resolve_model_dir
 from patches import split_image_into_patches
 from datasets import load_dataset
 import gc
@@ -61,9 +61,11 @@ async def find_objects(
     x1, y1, x2, y2 = rect_data["x1"], rect_data["y1"], rect_data["x2"], rect_data["y2"]
 
     # Initialize model and image processor
-    extractor = ViTImageProcessor.from_pretrained("./models/deit-small") 
-    model = AutoModel.from_pretrained("./models/deit-small")
-    model.config.hidden_size
+    model_dir = resolve_model_dir()
+    # extractor = ViTImageProcessor.from_pretrained("./models/deit-small") 
+    # model = AutoModel.from_pretrained("./models/deit-small")
+    extractor = ViTImageProcessor.from_pretrained(model_dir, local_files_only=True)
+    model = AutoModel.from_pretrained(model_dir, local_files_only=True)
 
     # Extract selected patch
     selected_patch = image[y1:y2, x1:x2]
